@@ -2,102 +2,51 @@ import json
 from pathlib import Path
 
 import faiss
-import numpy as np
 import streamlit as st
 from groq import Groq
 from sentence_transformers import SentenceTransformer
 
 
 # ============================================================
-# CONFIGURATION
+# CONFIG
 # ============================================================
 
-APP_TITLE = "University Academic Knowledge Assistant"
-
-FAISS_DIR = Path(__file__).parent / "faiss-index"
+BASE_DIR = Path(__file__).parent
+FAISS_DIR = BASE_DIR / "faiss-index"
 
 FAISS_INDEX_PATH = FAISS_DIR / "academic_documents.faiss"
 METADATA_PATH = FAISS_DIR / "metadata.json"
 CONFIG_PATH = FAISS_DIR / "config.json"
 
 GROQ_MODEL = "openai/gpt-oss-120b"
-
 TOP_K = 5
 
 
 # ============================================================
-# PAGE CONFIGURATION
+# PAGE
 # ============================================================
 
 st.set_page_config(
-    page_title=APP_TITLE,
+    page_title="Uni Knowledge Assistant",
     page_icon="🎓",
     layout="wide"
 )
 
 
-# ============================================================
-# CUSTOM CSS
-# ============================================================
+st.title("🎓 University Academic Knowledge Assistant")
 
-st.markdown(
-    """
-    <style>
-
-    .main-title {
-        font-size: 2.2rem;
-        font-weight: 700;
-        margin-bottom: 0.2rem;
-    }
-
-    .subtitle {
-        color: #6b7280;
-        font-size: 1rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .source-box {
-        padding: 0.8rem;
-        border-radius: 0.6rem;
-        border: 1px solid #d1d5db;
-        margin-bottom: 0.6rem;
-        background-color: #f9fafb;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
+st.write(
+    "Ask questions from the indexed university academic "
+    "knowledge base."
 )
 
 
 # ============================================================
-# HEADER
-# ============================================================
-
-st.markdown(
-    '<div class="main-title">🎓 University Academic Knowledge Assistant</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="subtitle">'
-    'Ask questions from the university academic knowledge base.'
-    '</div>',
-    unsafe_allow_html=True
-)
-
-
-# ============================================================
-# LOAD CONFIGURATION
+# LOAD CONFIG
 # ============================================================
 
 @st.cache_data
 def load_config():
-
-    if not CONFIG_PATH.exists():
-        raise FileNotFoundError(
-            f"Configuration file not found: {CONFIG_PATH}"
-        )
 
     with open(CONFIG_PATH, "r", encoding="utf-8") as file:
         return json.load(file)
@@ -110,28 +59,20 @@ def load_config():
 @st.cache_data
 def load_metadata():
 
-    if not METADATA_PATH.exists():
-        raise FileNotFoundError(
-            f"Metadata file not found: {METADATA_PATH}"
-        )
-
     with open(METADATA_PATH, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
 # ============================================================
-# LOAD FAISS INDEX
+# LOAD FAISS
 # ============================================================
 
 @st.cache_resource
-def load_faiss_index():
+def load_faiss():
 
-    if not FAISS_INDEX_PATH.exists():
-        raise FileNotFoundError(
-            f"FAISS index not found: {FAISS_INDEX_PATH}"
-        )
-
-    return faiss.read_index(str(FAISS_INDEX_PATH))
+    return faiss.read_index(
+        str(FAISS_INDEX_PATH)
+    )
 
 
 # ============================================================
@@ -145,42 +86,43 @@ def load_embedding_model(model_name):
 
 
 # ============================================================
-# LOAD GROQ CLIENT
+# LOAD GROQ
 # ============================================================
 
 @st.cache_resource
-def load_groq_client():
+def load_groq():
 
     api_key = st.secrets.get("GROQ_API_KEY")
 
     if not api_key:
-        raise ValueError(
-            "GROQ_API_KEY is missing. "
-            "Add it to Streamlit Secrets."
+        st.error(
+            "GROQ_API_KEY is not configured. "
+            "Please add it in Streamlit Secrets."
         )
+        st.stop()
 
     return Groq(api_key=api_key)
 
 
 # ============================================================
-# INITIALIZE RAG COMPONENTS
+# INITIALIZE
 # ============================================================
 
 try:
 
     config = load_config()
     metadata = load_metadata()
-    index = load_faiss_index()
+    faiss_index = load_faiss()
 
     embedding_model = load_embedding_model(
         config["embedding_model"]
     )
 
-    groq_client = load_groq_client()
+    groq_client = load_groq()
 
 except Exception as error:
 
-    st.error(f"Application initialization failed: {error}")
+    st.error(f"Application initialization error: {error}")
     st.stop()
 
 
@@ -192,42 +134,32 @@ with st.sidebar:
 
     st.header("📚 Knowledge Base")
 
-    st.write(
-        f"**Documents:** "
-        f"{len(set(item['metadata']['source'] for item in metadata))}"
+    sources = set(
+        item["metadata"]["source"]
+        for item in metadata
     )
 
+    st.write(f"**Documents:** {len(sources)}")
+    st.write(f"**Chunks:** {len(metadata)}")
     st.write(
-        f"**Knowledge chunks:** {len(metadata)}"
-    )
-
-    st.write(
-        f"**Vector dimension:** "
+        f"**Embedding dimension:** "
         f"{config['embedding_dimension']}"
-    )
-
-    st.write(
-        f"**Embedding model:** "
-        f"`{config['embedding_model']}`"
-    )
-
-    st.write(
-        f"**Retrieval:** Top {TOP_K} chunks"
     )
 
     st.divider()
 
     st.caption(
-        "Answers are generated from the indexed academic "
-        "knowledge base."
+        "Original PDF documents are not stored in this "
+        "application. The assistant uses the pre-built "
+        "FAISS index and metadata."
     )
 
 
 # ============================================================
-# RETRIEVAL FUNCTION
+# RETRIEVE
 # ============================================================
 
-def retrieve_documents(query: str, top_k: int = TOP_K):
+def retrieve_documents(query, top_k=TOP_K):
 
     query_embedding = embedding_model.encode(
         [query],
@@ -235,27 +167,28 @@ def retrieve_documents(query: str, top_k: int = TOP_K):
         convert_to_numpy=True
     ).astype("float32")
 
-    scores, indices = index.search(
+    scores, indices = faiss_index.search(
         query_embedding,
         top_k
     )
 
     results = []
 
-    for score, idx in zip(scores[0], indices[0]):
+    for score, index_id in zip(
+        scores[0],
+        indices[0]
+    ):
 
-        if idx < 0:
+        if index_id < 0:
             continue
 
-        item = metadata[int(idx)]
+        item = metadata[int(index_id)]
 
-        results.append(
-            {
-                "text": item["text"],
-                "metadata": item["metadata"],
-                "score": float(score)
-            }
-        )
+        results.append({
+            "text": item["text"],
+            "metadata": item["metadata"],
+            "score": float(score)
+        })
 
     return results
 
@@ -266,42 +199,32 @@ def retrieve_documents(query: str, top_k: int = TOP_K):
 
 def build_context(results):
 
-    context_parts = []
+    context = []
 
-    for number, result in enumerate(results, start=1):
+    for number, result in enumerate(
+        results,
+        start=1
+    ):
 
-        source = result["metadata"].get(
-            "source",
-            "Unknown source"
-        )
+        meta = result["metadata"]
 
-        page = result["metadata"].get(
-            "page",
-            "Unknown page"
-        )
-
-        chunk_id = result["metadata"].get(
-            "chunk_id",
-            "Unknown"
-        )
-
-        context_parts.append(
+        context.append(
             f"""
 SOURCE {number}
-File: {source}
-Page: {page}
-Chunk: {chunk_id}
+Document: {meta.get("source", "Unknown")}
+Page: {meta.get("page", "Unknown")}
+Chunk ID: {meta.get("chunk_id", "Unknown")}
 
 Content:
 {result["text"]}
 """
         )
 
-    return "\n".join(context_parts)
+    return "\n".join(context)
 
 
 # ============================================================
-# GROQ ANSWER GENERATION
+# GENERATE ANSWER
 # ============================================================
 
 def generate_answer(question, results):
@@ -311,27 +234,25 @@ def generate_answer(question, results):
     system_prompt = """
 You are a university academic knowledge assistant.
 
-Your job is to answer questions using ONLY the retrieved
-academic context supplied by the application.
+Answer the student's question using ONLY the retrieved
+academic context provided to you.
 
 Rules:
 
-1. Use the provided context as your primary knowledge source.
-2. Do not invent facts that are not supported by the context.
-3. If the context does not contain enough information, clearly
-   say that the answer could not be found in the indexed
-   academic documents.
+1. Do not invent information.
+2. Do not use outside knowledge when answering.
+3. If the retrieved context does not contain enough
+   information, say that the information was not found
+   in the indexed academic documents.
 4. Give a clear and academically useful answer.
-5. When making factual claims, include source references
-   using the source numbers provided in the context.
-6. Do not create fake page numbers or fake sources.
-7. Keep the answer focused on the student's question.
+5. Cite supporting sources using the provided source number
+   and page number.
+6. Never invent a source or page number.
+7. Keep the answer relevant to the student's question.
 
-Example citation format:
+Citation format:
 
 [Source 1, Page 5]
-
-or
 
 [Source 2, Page 12]
 """
@@ -345,11 +266,11 @@ Retrieved academic context:
 
 {context}
 
-Answer the student's question based on the retrieved context.
-Include source references with page numbers.
+Answer the question using the retrieved context.
+Include source citations with page numbers.
 """
 
-    completion = groq_client.chat.completions.create(
+    response = groq_client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[
             {
@@ -365,32 +286,35 @@ Include source references with page numbers.
         max_completion_tokens=1500
     )
 
-    return completion.choices[0].message.content
+    return response.choices[0].message.content
 
 
 # ============================================================
 # DISPLAY SOURCES
 # ============================================================
 
-def display_sources(results):
+def show_sources(results):
 
-    st.subheader("📚 Sources")
+    st.subheader("📚 Retrieved Sources")
 
-    for number, result in enumerate(results, start=1):
+    for number, result in enumerate(
+        results,
+        start=1
+    ):
 
-        metadata_item = result["metadata"]
+        meta = result["metadata"]
 
-        source = metadata_item.get(
+        source = meta.get(
             "source",
             "Unknown"
         )
 
-        page = metadata_item.get(
+        page = meta.get(
             "page",
             "Unknown"
         )
 
-        chunk_id = metadata_item.get(
+        chunk_id = meta.get(
             "chunk_id",
             "Unknown"
         )
@@ -398,11 +322,11 @@ def display_sources(results):
         score = result["score"]
 
         with st.expander(
-            f"Source {number} — {source} | Page {page}"
+            f"Source {number}: {source} — Page {page}"
         ):
 
             st.write(
-                f"**File:** {source}"
+                f"**Document:** {source}"
             )
 
             st.write(
@@ -410,7 +334,7 @@ def display_sources(results):
             )
 
             st.write(
-                f"**Chunk:** {chunk_id}"
+                f"**Chunk ID:** {chunk_id}"
             )
 
             st.write(
@@ -423,7 +347,7 @@ def display_sources(results):
 
 
 # ============================================================
-# CHAT INTERFACE
+# CHAT HISTORY
 # ============================================================
 
 if "messages" not in st.session_state:
@@ -433,16 +357,13 @@ if "messages" not in st.session_state:
 
 for message in st.session_state.messages:
 
-    with st.chat_message(message["role"]):
+    with st.chat_message(
+        message["role"]
+    ):
 
-        st.markdown(message["content"])
-
-        if (
-            message["role"] == "assistant"
-            and "sources" in message
-        ):
-
-            display_sources(message["sources"])
+        st.markdown(
+            message["content"]
+        )
 
 
 # ============================================================
@@ -450,49 +371,53 @@ for message in st.session_state.messages:
 # ============================================================
 
 question = st.chat_input(
-    "Ask a question about your academic documents..."
+    "Ask an academic question..."
 )
 
 
 if question:
 
-    # Display user question
+    # User message
     with st.chat_message("user"):
 
         st.markdown(question)
 
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": question
-        }
-    )
+    st.session_state.messages.append({
+        "role": "user",
+        "content": question
+    })
 
-    # Retrieve relevant chunks
-    with st.spinner("Searching academic knowledge base..."):
 
-        retrieved_results = retrieve_documents(
+    # Retrieval
+    with st.spinner(
+        "Searching academic knowledge base..."
+    ):
+
+        results = retrieve_documents(
             question,
             TOP_K
         )
 
-    if not retrieved_results:
+
+    if not results:
 
         answer = (
-            "I could not find relevant information in "
-            "the indexed academic documents."
+            "I could not find relevant information "
+            "in the indexed academic documents."
         )
 
     else:
 
-        # Generate answer using Groq
-        with st.spinner("Generating academic answer..."):
+        # LLM
+        with st.spinner(
+            "Generating answer..."
+        ):
 
             try:
 
                 answer = generate_answer(
                     question,
-                    retrieved_results
+                    results
                 )
 
             except Exception as error:
@@ -502,18 +427,17 @@ if question:
                     f"the answer: {error}"
                 )
 
-    # Display answer
+
+    # Assistant response
     with st.chat_message("assistant"):
 
         st.markdown(answer)
 
-        if retrieved_results:
-            display_sources(retrieved_results)
+        if results:
+            show_sources(results)
 
-    st.session_state.messages.append(
-        {
-            "role": "assistant",
-            "content": answer,
-            "sources": retrieved_results
-        }
-    )
+
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": answer
+    })
