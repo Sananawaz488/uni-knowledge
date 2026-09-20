@@ -1,6 +1,4 @@
-streamlit==1.64.0
-groq
+streamlit
 faiss-cpu
-sentence-transformers==6.1.0
-numpy==2.2.6
-torch
+sentence-transformers
+numpy
