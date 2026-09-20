@@ -23,7 +23,7 @@ TOP_K = 5
 
 
 # =========================
-# PAGE
+# PAGE CONFIGURATION
 # =========================
 
 st.set_page_config(
@@ -32,10 +32,191 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🎓 University Academic Knowledge Assistant")
 
-st.write(
-    "Ask questions from the indexed university academic knowledge base."
+# =========================
+# CUSTOM UI
+# =========================
+
+st.markdown(
+    """
+    <style>
+
+    /* =========================
+       MAIN APP
+       ========================= */
+
+    .stApp {
+        background: #f8fafc;
+    }
+
+    .main .block-container {
+        max-width: 1200px;
+        padding-top: 2.5rem;
+        padding-bottom: 4rem;
+        padding-left: 3rem;
+        padding-right: 3rem;
+    }
+
+
+    /* =========================
+       SIDEBAR
+       ========================= */
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(
+            180deg,
+            #eef6ff 0%,
+            #f8fbff 100%
+        );
+
+        border-right: 1px solid #dbe7f3;
+    }
+
+    [data-testid="stSidebar"] .block-container {
+        padding-top: 2rem;
+    }
+
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: #172554;
+    }
+
+    [data-testid="stSidebar"] p {
+        color: #475569;
+    }
+
+
+    /* =========================
+       TITLE
+       ========================= */
+
+    .app-title {
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: #172554;
+        line-height: 1.15;
+        margin-bottom: 10px;
+    }
+
+    .app-subtitle {
+        font-size: 1.05rem;
+        color: #64748b;
+        margin-bottom: 30px;
+    }
+
+
+    /* =========================
+       INFO CARDS
+       ========================= */
+
+    .info-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 18px 20px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    }
+
+    .info-title {
+        color: #64748b;
+        font-size: 0.85rem;
+        margin-bottom: 5px;
+    }
+
+    .info-value {
+        color: #172554;
+        font-size: 1.35rem;
+        font-weight: 700;
+    }
+
+
+    /* =========================
+       CHAT INPUT
+       ========================= */
+
+    [data-testid="stChatInput"] {
+        border-radius: 16px;
+    }
+
+    [data-testid="stChatInput"] textarea {
+        background: white !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 16px !important;
+        padding: 14px !important;
+        font-size: 1rem !important;
+    }
+
+    [data-testid="stChatInput"] textarea:focus {
+        border: 1px solid #6366f1 !important;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12) !important;
+    }
+
+
+    /* =========================
+       CHAT MESSAGES
+       ========================= */
+
+    [data-testid="stChatMessage"] {
+        border-radius: 14px;
+        margin-bottom: 12px;
+        padding: 8px;
+    }
+
+
+    /* =========================
+       SOURCE EXPANDERS
+       ========================= */
+
+    [data-testid="stExpander"] {
+        background: white;
+        border: 1px solid #dbe4ee;
+        border-radius: 12px;
+        margin-bottom: 10px;
+    }
+
+
+    /* =========================
+       BUTTONS
+       ========================= */
+
+    .stButton button {
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+    }
+
+
+    /* =========================
+       DIVIDERS
+       ========================= */
+
+    hr {
+        border-color: #dbe7f3;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# =========================
+# HEADER
+# =========================
+
+st.markdown(
+    """
+    <div class="app-title">
+        🎓 University Academic Knowledge Assistant
+    </div>
+
+    <div class="app-subtitle">
+        Ask questions and get answers from the indexed
+        university academic knowledge base.
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 
@@ -100,22 +281,48 @@ except Exception as error:
 
 with st.sidebar:
 
-    st.header("📚 Knowledge Base")
+    st.markdown("## 📚 Knowledge Base")
 
     sources = set(
         item["metadata"]["source"]
         for item in metadata
     )
 
-    st.write(f"**Documents:** {len(sources)}")
-    st.write(f"**Chunks:** {len(metadata)}")
+    st.markdown(
+        f"""
+        <div class="info-card">
+            <div class="info-title">📄 Documents</div>
+            <div class="info-value">{len(sources)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.write(
-        f"**Embedding dimension:** "
-        f"{config['embedding_dimension']}"
+    st.markdown(
+        f"""
+        <div class="info-card">
+            <div class="info-title">🧩 Knowledge Chunks</div>
+            <div class="info-value">{len(metadata)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        f"""
+        <div class="info-card">
+            <div class="info-title">🔢 Embedding Dimension</div>
+            <div class="info-value">
+                {config["embedding_dimension"]}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
     st.divider()
+
+    st.markdown("### ℹ️ About")
 
     st.caption(
         "Original PDF documents are not stored in this application."
@@ -123,7 +330,7 @@ with st.sidebar:
 
     st.caption(
         "The assistant uses the pre-built FAISS index "
-        "and metadata."
+        "and metadata to retrieve relevant academic information."
     )
 
 
@@ -243,7 +450,6 @@ Include source citations with page numbers.
 """
 
     response = groq_client.chat.completions.create(
-
         model=GROQ_MODEL,
 
         messages=[
@@ -318,7 +524,7 @@ for message in st.session_state.messages:
 # =========================
 
 question = st.chat_input(
-    "Ask an academic question..."
+    "💬 Ask an academic question..."
 )
 
 
@@ -354,7 +560,7 @@ if question:
         else:
 
             with st.spinner(
-                "🤖 Generating answer..."
+                "🤖 Generating academic answer..."
             ):
 
                 answer = generate_answer(
