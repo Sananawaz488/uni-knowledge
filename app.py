@@ -1,3 +1,4 @@
+```python
 import json
 from pathlib import Path
 
@@ -33,6 +34,7 @@ st.set_page_config(
 )
 
 st.title("🎓 University Academic Knowledge Assistant")
+
 st.write(
     "Ask questions from the indexed university academic knowledge base."
 )
@@ -80,7 +82,7 @@ def load_groq():
 
 
 # =========================
-# LOAD LIGHTWEIGHT DATA
+# LOAD DATA
 # =========================
 
 try:
@@ -108,6 +110,7 @@ with st.sidebar:
 
     st.write(f"**Documents:** {len(sources)}")
     st.write(f"**Chunks:** {len(metadata)}")
+
     st.write(
         f"**Embedding dimension:** "
         f"{config['embedding_dimension']}"
@@ -131,7 +134,6 @@ with st.sidebar:
 
 def retrieve_documents(query):
 
-    # Load embedding model only when user asks a question
     embedding_model = load_embedding_model(
         config["embedding_model"]
     )
@@ -288,6 +290,7 @@ def show_sources(results):
             st.write(f"**Document:** {source}")
             st.write(f"**Page:** {page}")
             st.write(f"**Chunk ID:** {chunk_id}")
+
             st.write(
                 f"**Similarity score:** {score:.4f}"
             )
@@ -342,7 +345,6 @@ if question:
 
             results = retrieve_documents(question)
 
-
         if not results:
 
             answer = (
@@ -361,7 +363,6 @@ if question:
                     results
                 )
 
-
         with st.chat_message("assistant"):
 
             st.markdown(answer)
@@ -369,12 +370,10 @@ if question:
             if results:
                 show_sources(results)
 
-
         st.session_state.messages.append({
             "role": "assistant",
             "content": answer
         })
-
 
     except Exception as error:
 
@@ -390,3 +389,4 @@ if question:
             "role": "assistant",
             "content": error_message
         })
+```
