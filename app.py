@@ -1,4 +1,3 @@
-```python
 import json
 from pathlib import Path
 
@@ -389,4 +388,3 @@ if question:
             "role": "assistant",
             "content": error_message
         })
-```
